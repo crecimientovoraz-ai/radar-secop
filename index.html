@@ -1,124 +1,827 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar de Licitaciones PRO</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-</head>
-<body class="bg-gray-50 text-gray-900">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Radar SECOP II — Portal de Licitaciones</title>
 
-    <nav class="bg-blue-700 p-4 text-white shadow-lg">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold">📡 Radar SECOP II</h1>
-            <span id="contador" class="bg-blue-900 px-3 py-1 rounded-full text-sm">Cargando...</span>
-        </div>
-    </nav>
+  <!--
+    FIX: ReferenceError: firebase is not defined
+    ─────────────────────────────────────────────
+    REGLA: los <script> del SDK de Firebase DEBEN ir en el <head>
+    SIN defer ni async. Así el objeto "firebase" existe en el
+    ámbito global antes de que corra cualquier código JS.
+  -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<div class="container mx-auto mt-6 px-4">
-    <div class="relative">
-        <input type="text" id="buscador" placeholder="🔍 Buscar por entidad, ciudad, código o palabra clave..." 
-               class="w-full p-4 pl-12 rounded-xl shadow-sm border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition">
-        <div class="absolute left-4 top-4 text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-        </div>
-    </div>
-</div>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-    <div class="container mx-auto py-8 px-4">
-        <div class="bg-white rounded-xl shadow-md overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full leading-normal">
-                    <thead>
-                        <tr class="bg-gray-100 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            <th class="px-5 py-3">Fecha</th>
-                            <th class="px-5 py-3">Código / Modalidad</th>
-                            <th class="px-5 py-3">Entidad / Ubicación</th>
-                            <th class="px-5 py-3">Objeto del Proceso</th>
-                            <th class="px-5 py-3">Presupuesto</th>
-                            <th class="px-5 py-3">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabla-licitaciones">
-                        </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // 1. CONFIGURACIÓN DE TU FIREBASE (Copia esto desde tu consola de Firebase)
-        const firebaseConfig = {
-            databaseURL: "https://radarlicitacionespro-default-rtdb.firebaseio.com/"
-        };
-
-        // Inicializar Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        // 2. LEER DATOS EN TIEMPO REAL
-        const tabla = document.getElementById('tabla-licitaciones');
-        const contador = document.getElementById('contador');
-
-let todasLasLicitaciones = []; // Variable global para guardar los datos
-
-db.ref('licitaciones').on('value', (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-        todasLasLicitaciones = Object.values(data).reverse();
-        renderizarTabla(todasLasLicitaciones);
+  <style>
+    /* ═══════════════════════════════════════════
+       MODO OSCURO (por defecto)
+    ═══════════════════════════════════════════ */
+    :root,
+    [data-theme="dark"] {
+      --bg:         #0a0f1e;
+      --surface:    #111827;
+      --surface2:   #1a2236;
+      --surface3:   #1e2a40;
+      --border:     rgba(99,179,237,.14);
+      --bordersoft: rgba(99,179,237,.07);
+      --accent:     #38bdf8;
+      --accent2:    #818cf8;
+      --success:    #34d399;
+      --warning:    #fbbf24;
+      --danger:     #f87171;
+      --text:       #e2e8f0;
+      --muted:      #64748b;
+      --header-bg:  rgba(10,15,30,.88);
+      --grid-clr:   rgba(56,189,248,.04);
+      --blob1:      #38bdf8;
+      --blob2:      #818cf8;
+      --blob-op:    .18;
+      --skel-a:     #1a2236;
+      --skel-b:     rgba(56,189,248,.07);
+      --shadow:     0 8px 32px rgba(0,0,0,.5);
     }
-});
 
-// Función para dibujar la tabla
-function renderizarTabla(lista) {
-    const tabla = document.getElementById('tabla-licitaciones');
-    const contador = document.getElementById('contador');
-    tabla.innerHTML = "";
-    contador.innerText = `${lista.length} Licitaciones encontradas`;
+    /* ═══════════════════════════════════════════
+       MODO CLARO
+    ═══════════════════════════════════════════ */
+    [data-theme="light"] {
+      --bg:         #f0f4f8;
+      --surface:    #ffffff;
+      --surface2:   #f1f5fb;
+      --surface3:   #e4ecf5;
+      --border:     rgba(30,100,180,.13);
+      --bordersoft: rgba(30,100,180,.06);
+      --accent:     #0ea5e9;
+      --accent2:    #6366f1;
+      --success:    #059669;
+      --warning:    #d97706;
+      --danger:     #dc2626;
+      --text:       #0f172a;
+      --muted:      #64748b;
+      --header-bg:  rgba(240,244,248,.92);
+      --grid-clr:   rgba(14,165,233,.05);
+      --blob1:      #bae6fd;
+      --blob2:      #c7d2fe;
+      --blob-op:    .4;
+      --skel-a:     #e2e8f0;
+      --skel-b:     rgba(14,165,233,.12);
+      --shadow:     0 8px 32px rgba(0,60,130,.1);
+    }
 
-    lista.forEach(lic => {
-        const row = `
-            <tr class="hover:bg-gray-50 border-b border-gray-200">
-                <td class="px-5 py-5 text-sm">${new Date(lic.fecha_deteccion).toLocaleDateString()}</td>
-                <td class="px-5 py-5 text-sm">
-                    <span class="font-bold text-blue-600">${lic.codigo || 'S/N'}</span><br>
-                    <span class="text-xs text-gray-500 italic">${lic.modalidad || ''}</span>
-                </td>
-                <td class="px-5 py-5 text-sm">
-                    <p class="font-semibold">${lic.entidad}</p>
-                    <p class="text-xs text-gray-600">${lic.ciudad || 'Colombia'}</p>
-                </td>
-                <td class="px-5 py-5 text-sm"><p class="line-clamp-2">${lic.objeto}</p></td>
-                <td class="px-5 py-5 text-sm font-bold text-green-700">
-                    $${Number(lic.valor).toLocaleString('es-CO')}
-                </td>
-                <td class="px-5 py-5 text-sm text-center">
-                    <a href="${lic.link}" target="_blank" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold hover:bg-blue-200 transition">Ver SECOP</a>
-                </td>
-            </tr>
-        `;
-        tabla.innerHTML += row;
+    /* ═══════════════════════════════════════════
+       BASE
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --fh: 'Space Mono', monospace;
+      --fb: 'Sora', sans-serif;
+      --r:  12px;
+      --rl: 20px;
+      --e:  cubic-bezier(.4,0,.2,1);
+      --t:  .22s;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--fb);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      transition: background var(--t) var(--e), color var(--t) var(--e);
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--grid-clr) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-clr) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none; z-index: 0;
+    }
+    .blob {
+      position: fixed; border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none; z-index: 0;
+      opacity: var(--blob-op);
+      transition: opacity var(--t);
+    }
+    .blob-1 { width:600px;height:600px;top:-200px;left:-200px; background:radial-gradient(circle,var(--blob1),transparent 70%); }
+    .blob-2 { width:400px;height:400px;bottom:-100px;right:-100px; background:radial-gradient(circle,var(--blob2),transparent 70%); }
+    .layout { position: relative; z-index: 1; }
+
+    /* ─── HEADER ─────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--header-bg);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem; height: 64px;
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+      transition: background var(--t), border-color var(--t);
+    }
+    .hbrand { display:flex; align-items:center; gap:.7rem; }
+    .hicon {
+      width:36px;height:36px;border-radius:8px;flex-shrink:0;font-size:18px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 18px rgba(56,189,248,.3);
+    }
+    .htitle {
+      font-family:var(--fh);font-size:.86rem;font-weight:700;letter-spacing:.05em;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hsub { font-size:.6rem;color:var(--muted);font-family:var(--fh);letter-spacing:.08em; }
+    .hright { display:flex;align-items:center;gap:.55rem;flex-wrap:wrap; }
+
+    .status-badge {
+      display:flex;align-items:center;gap:.45rem;padding:.3rem .75rem;
+      background:var(--surface2);border:1px solid var(--border);border-radius:999px;
+      font-size:.67rem;font-family:var(--fh);color:var(--muted);letter-spacing:.06em;
+      transition:background var(--t),border-color var(--t);
+    }
+    .sdot {
+      width:8px;height:8px;border-radius:50%;background:var(--muted);
+      transition:background .3s,box-shadow .3s;
+    }
+    .sdot.online  { background:var(--success);box-shadow:0 0 8px var(--success);animation:pdot 2s infinite; }
+    .sdot.offline { background:var(--danger); box-shadow:0 0 8px var(--danger); }
+    .sdot.loading { background:var(--warning);animation:blink .8s infinite alternate; }
+    @keyframes pdot  { 0%,100%{opacity:1}50%{opacity:.35} }
+    @keyframes blink { from{opacity:1}to{opacity:.25} }
+
+    .chip {
+      padding:.3rem .75rem;border-radius:999px;
+      font-family:var(--fh);font-size:.67rem;font-weight:700;
+      background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(129,140,248,.12));
+      border:1px solid rgba(56,189,248,.25);color:var(--accent);letter-spacing:.04em;
+      transition:color var(--t),border-color var(--t);
+    }
+
+    /* ─── THEME TOGGLE ──────────────────────── */
+    .theme-toggle {
+      display:flex;align-items:center;gap:.4rem;
+      background:var(--surface2);border:1px solid var(--border);
+      border-radius:999px;padding:.28rem .28rem .28rem .65rem;
+      cursor:pointer;font-size:.67rem;font-family:var(--fh);
+      color:var(--muted);letter-spacing:.04em;white-space:nowrap;
+      transition:all var(--t) var(--e);
+    }
+    .theme-toggle:hover { border-color:var(--accent);color:var(--text); }
+    .ttrack {
+      width:34px;height:19px;background:var(--surface3);
+      border-radius:999px;border:1px solid var(--border);
+      position:relative;transition:background var(--t);flex-shrink:0;
+    }
+    [data-theme="light"] .ttrack { background:var(--accent);border-color:var(--accent); }
+    .tthumb {
+      position:absolute;top:2px;left:2px;width:13px;height:13px;
+      border-radius:50%;background:var(--muted);
+      transition:transform var(--t) var(--e),background var(--t);
+    }
+    [data-theme="light"] .tthumb { transform:translateX(15px);background:#fff; }
+    .lbl-dark  { display:inline; }
+    .lbl-light { display:none;   }
+    [data-theme="light"] .lbl-dark  { display:none; }
+    [data-theme="light"] .lbl-light { display:inline; }
+
+    /* Icon buttons */
+    .ibtn {
+      background:var(--surface2);border:1px solid var(--border);
+      border-radius:var(--r);padding:.58rem;color:var(--muted);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:all var(--t) var(--e);
+    }
+    .ibtn:hover { border-color:var(--accent);color:var(--accent); }
+    .ibtn svg   { width:15px;height:15px; }
+
+    /* ─── MODAL ──────────────────────────────── */
+    #moverlay {
+      position:fixed;inset:0;z-index:200;
+      background:rgba(0,0,0,.65);backdrop-filter:blur(6px);
+      display:flex;align-items:center;justify-content:center;padding:1.5rem;
+      opacity:0;pointer-events:none;transition:opacity .26s;
+    }
+    #moverlay.open { opacity:1;pointer-events:all; }
+    .mbox {
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--rl);padding:1.8rem;width:100%;max-width:500px;
+      transform:translateY(14px);
+      transition:transform .26s var(--e),background var(--t),border-color var(--t);
+      box-shadow:var(--shadow);
+    }
+    #moverlay.open .mbox { transform:translateY(0); }
+    .mhdr { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.3rem; }
+    .mhdr h2 { font-family:var(--fh);font-size:.95rem;color:var(--accent); }
+    .mhdr p  { font-size:.73rem;color:var(--muted);margin-top:.28rem;line-height:1.5; }
+    .mclose  { background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem;transition:color var(--t); }
+    .mclose:hover { color:var(--text); }
+    .field { margin-bottom:.95rem; }
+    .field label { display:block;font-size:.68rem;font-family:var(--fh);color:var(--muted);letter-spacing:.07em;margin-bottom:.42rem; }
+    .field input {
+      width:100%;background:var(--bg);border:1px solid var(--border);
+      border-radius:8px;padding:.68rem 1rem;color:var(--text);
+      font-family:var(--fh);font-size:.76rem;outline:none;
+      transition:border-color var(--t),box-shadow var(--t),background var(--t),color var(--t);
+    }
+    .field input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.1); }
+    .field input::placeholder { color:var(--muted); }
+    .ibox {
+      background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.13);
+      border-radius:8px;padding:.8rem 1rem;font-size:.71rem;color:var(--muted);line-height:1.7;
+    }
+    .ibox strong { color:var(--accent); }
+    .ibox code   { font-family:var(--fh);font-size:.68rem;color:var(--accent); }
+    .btn {
+      display:inline-flex;align-items:center;gap:.42rem;
+      padding:.62rem 1.3rem;border-radius:8px;
+      font-family:var(--fh);font-size:.73rem;font-weight:700;
+      letter-spacing:.04em;cursor:pointer;border:none;
+      transition:all var(--t) var(--e);
+    }
+    .bp { background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 14px rgba(56,189,248,.2); }
+    .bp:hover { transform:translateY(-1px);box-shadow:0 6px 22px rgba(56,189,248,.35); }
+    .bg { background:transparent;border:1px solid var(--border);color:var(--muted); }
+    .bg:hover { border-color:var(--muted);color:var(--text); }
+    .mact { display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.3rem; }
+
+    /* ─── BANNER ─────────────────────────────── */
+    #banner {
+      margin-bottom:1.4rem;padding:1rem 1.3rem;
+      background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.24);
+      border-radius:var(--r);display:none;align-items:flex-start;gap:.9rem;
+    }
+    #banner.show { display:flex; }
+    #banner h3   { font-size:.8rem;font-weight:600;color:var(--warning);margin-bottom:.28rem; }
+    #banner p    { font-size:.74rem;color:var(--muted);line-height:1.5; }
+    #banner code { font-family:var(--fh);font-size:.7rem;background:rgba(251,191,36,.1);padding:.1rem .32rem;border-radius:3px;color:var(--warning); }
+    .bclose {
+      margin-left:auto;flex-shrink:0;background:none;
+      border:1px solid rgba(251,191,36,.22);color:var(--muted);
+      border-radius:6px;padding:.26rem .55rem;font-size:.66rem;cursor:pointer;
+      transition:all var(--t);
+    }
+    .bclose:hover { color:var(--warning);border-color:var(--warning); }
+
+    /* ─── MAIN ───────────────────────────────── */
+    main { max-width:1400px;margin:0 auto;padding:2rem; }
+
+    .stats-row { display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:1rem;margin-bottom:1.4rem; }
+    .scard {
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--r);padding:1rem 1.2rem;position:relative;overflow:hidden;
+      transition:border-color var(--t),transform var(--t),background var(--t);
+    }
+    .scard:hover { border-color:rgba(56,189,248,.28);transform:translateY(-2px); }
+    .scard::before { content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(56,189,248,.03),transparent);pointer-events:none; }
+    .slbl { font-size:.61rem;font-family:var(--fh);letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:.38rem; }
+    .sval { font-family:var(--fh);font-size:1.5rem;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1; }
+    .ssub { font-size:.66rem;color:var(--muted);margin-top:.28rem; }
+
+    /* Toolbar */
+    .toolbar { display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem;flex-wrap:wrap; }
+    .swrap { flex:1;min-width:200px;position:relative; }
+    .swrap svg { position:absolute;left:.85rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted);pointer-events:none; }
+    .swrap input {
+      width:100%;background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--r);padding:.7rem 1rem .7rem 2.5rem;
+      color:var(--text);font-family:var(--fb);font-size:.82rem;outline:none;
+      transition:border-color var(--t),box-shadow var(--t),background var(--t),color var(--t);
+    }
+    .swrap input:focus { border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.09); }
+    .swrap input::placeholder { color:var(--muted); }
+    .fsel {
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+      padding:.7rem 2rem .7rem 1rem;color:var(--text);font-family:var(--fb);font-size:.79rem;
+      outline:none;cursor:pointer;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right .72rem center;
+      transition:border-color var(--t),background var(--t),color var(--t);
+    }
+    .fsel:focus { border-color:var(--accent); }
+    .fsel option { background:var(--surface);color:var(--text); }
+
+    /* Table */
+    .twrap {
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--rl);overflow:hidden;
+      box-shadow:var(--shadow);
+      transition:background var(--t),border-color var(--t);
+    }
+    .tscroll { overflow-x:auto; }
+    table { width:100%;border-collapse:collapse;font-size:.81rem; }
+    thead tr { background:rgba(56,189,248,.04);border-bottom:1px solid var(--border); }
+    th {
+      padding:.85rem 1.15rem;text-align:left;
+      font-family:var(--fh);font-size:.59rem;letter-spacing:.1em;
+      text-transform:uppercase;color:var(--muted);white-space:nowrap;font-weight:400;
+    }
+    tbody tr {
+      border-bottom:1px solid var(--bordersoft);
+      transition:background var(--t);
+      animation:rin .3s ease both;
+    }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:rgba(56,189,248,.03); }
+    @keyframes rin { from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)} }
+    td { padding:.8rem 1.15rem;vertical-align:middle; }
+
+    .cid    { color:var(--accent);font-weight:700;font-family:var(--fh);font-size:.73rem; }
+    .cmod   { display:inline-block;margin-top:.26rem;padding:.11rem .42rem;border-radius:999px;font-size:.59rem;background:rgba(129,140,248,.1);color:var(--accent2);border:1px solid rgba(129,140,248,.18);font-family:var(--fh); }
+    .ename  { font-weight:600; }
+    .ecity  { font-size:.69rem;color:var(--muted);margin-top:.16rem; }
+    .otext  { display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:265px;line-height:1.5; }
+    .otag   { display:inline-block;margin-top:.28rem;padding:.09rem .4rem;border-radius:999px;font-size:.57rem;font-family:var(--fh);background:rgba(52,211,153,.08);color:var(--success);border:1px solid rgba(52,211,153,.17);text-transform:uppercase;letter-spacing:.06em; }
+    .vamt   { color:var(--success);font-weight:700;font-family:var(--fh);font-size:.84rem; }
+    .vna    { color:var(--muted);font-size:.72rem;font-family:var(--fh); }
+    .dfecha { font-size:.69rem;color:var(--muted);white-space:nowrap;font-family:var(--fh); }
+
+    .bver {
+      display:inline-flex;align-items:center;gap:.36rem;padding:.44rem .9rem;
+      background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.22);
+      border-radius:8px;color:var(--accent);font-family:var(--fh);font-size:.67rem;
+      font-weight:700;letter-spacing:.04em;text-decoration:none;white-space:nowrap;
+      transition:all var(--t) var(--e);
+    }
+    .bver:hover { background:rgba(56,189,248,.16);border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(56,189,248,.18); }
+    .bver svg { width:11px;height:11px; }
+
+    /* States */
+    .strow td { text-align:center;padding:3.5rem 2rem;color:var(--muted); }
+    .sticon  { font-size:2.1rem;margin-bottom:.6rem; }
+    .sttitle { font-size:.86rem;font-weight:600;color:var(--text);margin-bottom:.28rem; }
+    .stdesc  { font-size:.76rem;line-height:1.6; }
+
+    .skel {
+      height:13px;border-radius:4px;
+      background:linear-gradient(90deg,var(--skel-a) 25%,var(--skel-b) 50%,var(--skel-a) 75%);
+      background-size:200% 100%;animation:sshine 1.4s infinite;
+    }
+    @keyframes sshine { to{background-position:-200% 0} }
+
+    .tfooter {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:.82rem 1.35rem;border-top:1px solid var(--border);
+      font-size:.69rem;color:var(--muted);font-family:var(--fh);
+      flex-wrap:wrap;gap:.5rem;transition:border-color var(--t);
+    }
+
+    /* Toast */
+    #toast { position:fixed;bottom:1.4rem;right:1.4rem;z-index:300;display:flex;flex-direction:column;gap:.45rem; }
+    .titem {
+      display:flex;align-items:center;gap:.65rem;padding:.68rem 1rem;
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--r);font-size:.75rem;max-width:340px;
+      box-shadow:var(--shadow);animation:tin .28s ease;
+      transition:background var(--t),border-color var(--t);
+    }
+    .titem.success { border-color:rgba(52,211,153,.38); }
+    .titem.error   { border-color:rgba(248,113,113,.38); }
+    .titem.info    { border-color:rgba(56,189,248,.28);  }
+    @keyframes tin { from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)} }
+
+    @media(max-width:768px) {
+      main { padding:1rem; }
+      header { padding:0 1rem; }
+      .hsub,.lbl-dark,.lbl-light { display:none!important; }
+      .theme-toggle { padding:.28rem; }
+      th:nth-child(4),td:nth-child(4),
+      th:nth-child(5),td:nth-child(5) { display:none; }
+      .stats-row { grid-template-columns:repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob-1" aria-hidden="true"></div>
+  <div class="blob blob-2" aria-hidden="true"></div>
+
+  <!-- ══ MODAL FIREBASE ════════════════════════ -->
+  <div id="moverlay" role="dialog" aria-modal="true">
+    <div class="mbox">
+      <div class="mhdr">
+        <div>
+          <h2>⚙️ Configurar Firebase</h2>
+          <p>La URL de tu proyecto ya está precargada. Pulsa Conectar para cargar los datos.</p>
+        </div>
+        <button class="mclose" onclick="closeMod()">✕</button>
+      </div>
+      <div class="field">
+        <label for="iurl">DATABASE URL</label>
+        <input type="url" id="iurl"
+          value="https://radarlicitaciones-default-rtdb.firebaseio.com/"
+          autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="ibox">
+        💡 Búscala en <strong>Firebase Console → Realtime Database → URL</strong>.<br>
+        Debe terminar en <code>.firebaseio.com</code>
+      </div>
+      <div class="mact">
+        <button class="btn bg" onclick="closeMod()">Cancelar</button>
+        <button class="btn bp" onclick="saveConf()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Conectar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LAYOUT ════════════════════════════════ -->
+  <div class="layout">
+    <header>
+      <div class="hbrand">
+        <div class="hicon">📡</div>
+        <div>
+          <div class="htitle">RADAR SECOP II</div>
+          <div class="hsub">PORTAL DE LICITACIONES · COL</div>
+        </div>
+      </div>
+      <div class="hright">
+        <div class="status-badge">
+          <div class="sdot loading" id="sdot"></div>
+          <span id="stxt">Conectando…</span>
+        </div>
+        <div class="chip" id="chip">— licitaciones</div>
+
+        <!-- TOGGLE TEMA -->
+        <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema" aria-label="Alternar modo claro/oscuro">
+          <span class="lbl-dark">🌙 Oscuro</span>
+          <span class="lbl-light">☀️ Claro</span>
+          <div class="ttrack"><div class="tthumb"></div></div>
+        </button>
+
+        <button class="ibtn" onclick="openMod()" title="Configurar Firebase">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
+        </button>
+        <button class="ibtn" onclick="doRefresh()" title="Actualizar datos">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Banner -->
+      <div id="banner">
+        <div style="font-size:1.2rem;flex-shrink:0;margin-top:2px">⚠️</div>
+        <div>
+          <h3>Firebase no configurado</h3>
+          <p>Haz clic en <code>⚙</code> arriba a la derecha e ingresa la URL de tu base de datos.</p>
+        </div>
+        <button class="bclose" onclick="document.getElementById('banner').classList.remove('show')">Cerrar</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="scard"><div class="slbl">Total detectadas</div><div class="sval" id="s-total">—</div><div class="ssub">licitaciones en BD</div></div>
+        <div class="scard"><div class="slbl">Últimas 24h</div><div class="sval" id="s-hoy">—</div><div class="ssub">nuevas alertas</div></div>
+        <div class="scard"><div class="slbl">Presupuesto total</div><div class="sval" id="s-val" style="font-size:1.1rem">—</div><div class="ssub">suma estimada</div></div>
+        <div class="scard"><div class="slbl">Términos activos</div><div class="sval" id="s-terms">—</div><div class="ssub">palabras rastreadas</div></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="swrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="buscador" placeholder="Buscar por entidad, ciudad, objeto o código…" autocomplete="off" />
+        </div>
+        <select class="fsel" id="ftermino"><option value="">Todos los términos</option></select>
+        <select class="fsel" id="forden">
+          <option value="fecha_desc">Más recientes</option>
+          <option value="valor_desc">Mayor valor</option>
+          <option value="valor_asc">Menor valor</option>
+          <option value="entidad_asc">Entidad A→Z</option>
+        </select>
+        <button class="ibtn" onclick="exportCSV()" title="Exportar CSV">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="twrap">
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Código / Modalidad</th>
+                <th>Entidad / Ciudad</th>
+                <th>Objeto del Contrato</th>
+                <th>Valor Estimado</th>
+                <th>Detección</th>
+                <th style="text-align:center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tabla"></tbody>
+          </table>
+        </div>
+        <div class="tfooter">
+          <span id="finfo">—</span>
+          <span id="fupdate">—</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" aria-live="polite"></div>
+
+  <script>
+  /*
+  ╔════════════════════════════════════════════════════════════╗
+  ║  CORRECCIONES firebase is not defined — RESUMEN           ║
+  ║                                                           ║
+  ║  CAUSA 1 → SDK con defer/async o cargado en el body       ║
+  ║  FIX 1   → <script> síncronos en <head> (ver arriba)      ║
+  ║                                                           ║
+  ║  CAUSA 2 → initializeApp() múltiple → app ya existe       ║
+  ║  FIX 2   → getOrCreate() reutiliza la instancia existente ║
+  ║                                                           ║
+  ║  CAUSA 3 → URL con "/" final rompe resolución DNS          ║
+  ║  FIX 3   → url.replace(/\/$/, '') antes de usar           ║
+  ║                                                           ║
+  ║  CAUSA 4 → Sin callback de error en .on('value')          ║
+  ║  FIX 4   → 2º argumento con mensaje PERMISSION_DENIED     ║
+  ╚════════════════════════════════════════════════════════════╝
+  */
+  "use strict";
+
+  const SK       = 'radar_fb_url';
+  const TK       = 'radar_theme';
+  const FB_URL   = 'https://radarlicitaciones-default-rtdb.firebaseio.com';
+  const FB_PATH  = 'licitaciones';
+  const APP_NAME = 'radar-app';
+
+  let datos = [];
+  let fbDB  = null;
+
+  const $ = id => document.getElementById(id);
+
+  // ── STATUS ──────────────────────────────────────────────
+  function setSt(cls, txt) {
+    $('sdot').className = 'sdot ' + cls;
+    $('stxt').textContent = txt;
+  }
+
+  // ── THEME ───────────────────────────────────────────────
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem(TK, t);
+  }
+  function toggleTheme() {
+    setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+
+  // ── INIT ────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    // Tema
+    setTheme(localStorage.getItem(TK) || 'dark');
+
+    // URL guardada o por defecto
+    const url = localStorage.getItem(SK) || FB_URL;
+    $('iurl').value = url;
+    localStorage.setItem(SK, url);
+
+    // Verificar que el SDK cargó (FIX 1 — guardia de seguridad)
+    if (typeof firebase === 'undefined') {
+      setSt('offline', 'SDK no cargado');
+      showErr(
+        'El SDK de Firebase no se pudo cargar.\n\n' +
+        '• Verifica tu conexión a Internet.\n' +
+        '• Si tienes un bloqueador de anuncios (uBlock, Adblock),\n' +
+        '  desactívalo para esta página y recarga.\n' +
+        '• Si usas Firefox con Protección contra rastreo estricta,\n' +
+        '  permite scripts de gstatic.com.'
+      );
+      return;
+    }
+
+    showSkel();
+    connectFB(url);
+
+    $('buscador').addEventListener('input', filter);
+    $('ftermino').addEventListener('change', filter);
+    $('forden').addEventListener('change', filter);
+  });
+
+  // ── FIREBASE: INSTANCIA ÚNICA (FIX 2) ───────────────────
+  function getOrCreate(url) {
+    const clean = url.replace(/\/$/, '');   // FIX 3: quitar barra final
+    try {
+      const ex = firebase.app(APP_NAME);
+      if (ex.options.databaseURL === clean) return ex;  // reutilizar
+      ex.delete();                                        // URL distinta → recrear
+    } catch (_) { /* app no existe aún — normal */ }
+    return firebase.initializeApp({ databaseURL: clean }, APP_NAME);
+  }
+
+  // ── CONECTAR ────────────────────────────────────────────
+  function connectFB(url) {
+    setSt('loading', 'Conectando…');
+    if (!url || !url.includes('firebaseio.com')) {
+      setSt('offline', 'URL inválida');
+      $('banner').classList.add('show');
+      showErr('URL inválida.\nEjemplo: https://mi-proyecto-default-rtdb.firebaseio.com');
+      return;
+    }
+    try {
+      const app = getOrCreate(url);
+      fbDB = app.database();
+
+      // Estado de red en tiempo real
+      fbDB.ref('.info/connected').on('value', s => {
+        setSt(s.val() ? 'online' : 'offline', s.val() ? 'Conectado' : 'Sin conexión');
+      });
+
+      // Leer datos (FIX 4: callback de error explícito)
+      fbDB.ref(FB_PATH).on('value',
+        snap => {
+          const raw = snap.val();
+          if (!raw) {
+            datos = [];
+            renderT([]);
+            updateStats([]);
+            setSt('online', 'Conectado');
+            toast('ℹ️ Base de datos vacía. El radar aún no ha registrado licitaciones.', 'info');
+            return;
+          }
+          datos = Object.entries(raw).map(([k, v]) => ({ _k: k, ...v }));
+          setSt('online', 'Conectado');
+          updateStats(datos);
+          fillTerms(datos);
+          filter();
+          $('fupdate').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-CO');
+          toast('📡 ' + datos.length + ' licitaciones cargadas', 'success');
+        },
+        err => {
+          setSt('offline', 'Acceso denegado');
+          console.error('[Radar]', err);
+          let m = 'Error al leer Firebase.';
+          if (err.code === 'PERMISSION_DENIED')
+            m = 'Acceso denegado (PERMISSION_DENIED).\n\nEn Firebase Console → Realtime Database → Reglas verifica:\n{\n  ".read": true,\n  ".write": true\n}\nLuego publica los cambios y recarga.';
+          else if (err.code === 'NETWORK_ERROR')
+            m = 'Sin conexión a Internet. Verifica tu red.';
+          showErr(m);
+        }
+      );
+    } catch (e) {
+      setSt('offline', 'Error crítico');
+      console.error('[Radar]', e);
+      showErr('Error al inicializar Firebase:\n' + e.message);
+    }
+  }
+
+  // ── FILTROS ─────────────────────────────────────────────
+  function filter() {
+    const q  = ($('buscador').value || '').toLowerCase().trim();
+    const kw = $('ftermino').value;
+    const or = $('forden').value;
+    let l = datos.filter(d => {
+      const ms = !q || [d.entidad,d.objeto,d.ciudad,d.codigo,d.modalidad,d.termino].some(v=>(v||'').toLowerCase().includes(q));
+      const mk = !kw || (d.termino||'').toLowerCase() === kw.toLowerCase();
+      return ms && mk;
     });
-}
+    l = sort(l, or);
+    renderT(l);
+    $('finfo').textContent = l.length + ' resultado' + (l.length!==1?'s':'') + ' de ' + datos.length + ' licitaciones';
+  }
 
-// LOGICA DEL BUSCADOR
-document.getElementById('buscador').addEventListener('input', (e) => {
-    const termino = e.target.value.toLowerCase();
-    const filtradas = todasLasLicitaciones.filter(lic => {
-        return lic.entidad.toLowerCase().includes(termino) || 
-               lic.objeto.toLowerCase().includes(termino) || 
-               (lic.ciudad && lic.ciudad.toLowerCase().includes(termino)) ||
-               lic.codigo.toLowerCase().includes(termino);
+  function sort(l, o) {
+    return [...l].sort((a,b) => {
+      if (o==='valor_desc')  return (parseFloat(b.valor)||0)-(parseFloat(a.valor)||0);
+      if (o==='valor_asc')   return (parseFloat(a.valor)||0)-(parseFloat(b.valor)||0);
+      if (o==='entidad_asc') return (a.entidad||'').localeCompare(b.entidad||'','es');
+      return new Date(b.fecha_deteccion||0)-new Date(a.fecha_deteccion||0);
     });
-    renderizarTabla(filtradas);
-});
-            }
-        });
-    </script>
+  }
+
+  function fillTerms(l) {
+    const terms = [...new Set(l.map(d=>d.termino).filter(Boolean))].sort();
+    const s = $('ftermino'), cur = s.value;
+    s.innerHTML = '<option value="">Todos los términos</option>' +
+      terms.map(t=>`<option value="${x(t)}"${cur===t?' selected':''}>${x(t)}</option>`).join('');
+  }
+
+  // ── RENDER ──────────────────────────────────────────────
+  function renderT(l) {
+    const tb = $('tabla');
+    if (!l.length) {
+      tb.innerHTML = `<tr class="strow"><td colspan="6">
+        <div class="sticon">🔍</div>
+        <div class="sttitle">Sin resultados</div>
+        <div class="stdesc">No hay licitaciones que coincidan con tu búsqueda.<br>Prueba con otros términos o limpia los filtros.</div>
+      </td></tr>`;
+      $('chip').textContent = '0 licitaciones';
+      return;
+    }
+    tb.innerHTML = l.map((d,i) => {
+      const v   = parseFloat(d.valor);
+      const vs  = isNaN(v)||v<=0 ? '<span class="vna">Ver en SECOP</span>' : '<span class="vamt">$'+v.toLocaleString('es-CO')+'</span>';
+      const lnk = x(d.link||'#');
+      return `<tr style="animation-delay:${Math.min(i*26,360)}ms">
+        <td><span class="cid">${x(d.codigo||'S/N')}</span>${d.modalidad?`<br><span class="cmod">${x(d.modalidad)}</span>`:''}</td>
+        <td><div class="ename">${x(d.entidad||'No definida')}</div>${d.ciudad?`<div class="ecity">📍 ${x(d.ciudad)}</div>`:''}</td>
+        <td><div class="otext">${x(d.objeto||'Sin descripción')}</div>${d.termino?`<span class="otag">${x(d.termino)}</span>`:''}</td>
+        <td>${vs}</td>
+        <td class="dfecha">${d.fecha_deteccion?fmt(d.fecha_deteccion):'—'}</td>
+        <td style="text-align:center"><a href="${lnk}" target="_blank" rel="noopener noreferrer" class="bver">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          SECOP II</a></td>
+      </tr>`;
+    }).join('');
+    $('chip').textContent = l.length + ' licitaciones';
+  }
+
+  // ── STATS ───────────────────────────────────────────────
+  function updateStats(l) {
+    $('s-total').textContent = l.length;
+    const h24 = Date.now()-86400000;
+    $('s-hoy').textContent = l.filter(d=>new Date(d.fecha_deteccion||0).getTime()>h24).length;
+    const tot = l.reduce((s,d)=>s+(parseFloat(d.valor)||0),0);
+    $('s-val').textContent = tot>0?'$'+abr(tot):'N/A';
+    $('s-terms').textContent = new Set(l.map(d=>d.termino).filter(Boolean)).size||'—';
+  }
+
+  // ── SKELETON ────────────────────────────────────────────
+  function showSkel() {
+    $('tabla').innerHTML = Array.from({length:7}).map(()=>
+      '<tr>'+Array.from({length:6}).map(()=>`<td><div class="skel" style="width:${55+(Math.random()*38|0)}%"></div></td>`).join('')+'</tr>'
+    ).join('');
+  }
+
+  // ── ERROR STATE ─────────────────────────────────────────
+  function showErr(msg) {
+    $('tabla').innerHTML = `<tr class="strow"><td colspan="6">
+      <div class="sticon">🔴</div>
+      <div class="sttitle">Error de conexión</div>
+      <div class="stdesc" style="max-width:440px;margin:0 auto;white-space:pre-line">${x(msg)}</div>
+      <br><button class="btn bg" style="margin:0 auto;display:flex" onclick="openMod()">⚙️ Reconfigurar Firebase</button>
+    </td></tr>`;
+  }
+
+  // ── MODAL ───────────────────────────────────────────────
+  function openMod() { $('moverlay').classList.add('open'); setTimeout(()=>$('iurl').focus(),80); }
+  function closeMod(){ $('moverlay').classList.remove('open'); }
+  function saveConf() {
+    const url = ($('iurl').value||'').trim().replace(/\/$/,'');
+    if (!url) { toast('⚠️ Introduce la URL de Firebase','error'); return; }
+    if (!url.startsWith('https://')||!url.includes('firebaseio.com')) {
+      toast('⚠️ URL inválida. Ejemplo: https://mi-proyecto-default-rtdb.firebaseio.com','error'); return;
+    }
+    localStorage.setItem(SK, url);
+    closeMod();
+    $('banner').classList.remove('show');
+    showSkel();
+    if (fbDB) try { fbDB.ref(FB_PATH).off(); } catch(_){}
+    connectFB(url);
+  }
+  $('moverlay').addEventListener('click', e=>{ if(e.target===$('moverlay'))closeMod(); });
+
+  // ── REFRESH ─────────────────────────────────────────────
+  function doRefresh() {
+    if (fbDB) try { fbDB.ref(FB_PATH).off(); } catch(_){}
+    showSkel();
+    connectFB(localStorage.getItem(SK)||FB_URL);
+  }
+
+  // ── EXPORT CSV ──────────────────────────────────────────
+  function exportCSV() {
+    if (!datos.length) { toast('ℹ️ No hay datos para exportar','info'); return; }
+    const h=['codigo','entidad','ciudad','modalidad','objeto','valor','termino','fecha_deteccion','link'];
+    const rows=datos.map(d=>h.map(k=>`"${(d[k]??'').toString().replace(/"/g,'""')}"`).join(','));
+    const csv=[h.join(','),...rows].join('\n');
+    const a=Object.assign(document.createElement('a'),{
+      href:URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})),
+      download:'radar_secop_'+new Date().toISOString().slice(0,10)+'.csv'
+    });
+    a.click();
+    toast('📥 CSV exportado correctamente','success');
+  }
+
+  // ── TOAST ───────────────────────────────────────────────
+  function toast(msg, type='info') {
+    const el=document.createElement('div');
+    el.className='titem '+type;
+    el.textContent=msg;
+    $('toast').appendChild(el);
+    setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .4s';},3400);
+    setTimeout(()=>el.remove(),3900);
+  }
+
+  // ── UTILS ───────────────────────────────────────────────
+  function x(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fmt(iso){ try{return new Date(iso).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});}catch{return iso;} }
+  function abr(n){
+    if(n>=1e12)return(n/1e12).toFixed(1)+' B';
+    if(n>=1e9) return(n/1e9).toFixed(1)+' M COP';
+    if(n>=1e6) return(n/1e6).toFixed(1)+' M';
+    if(n>=1e3) return(n/1e3).toFixed(0)+' K';
+    return n.toLocaleString('es-CO');
+  }
+  </script>
 </body>
 </html>
